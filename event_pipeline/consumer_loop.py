@@ -12,4 +12,4 @@ def run():
         if ev:
             consumer.process(ev)
         else:
-            time.sleep(0.001)
+            time.sleep(0.5)
