@@ -1,44 +1,59 @@
-from multiprocessing import Process, Queue
-from event_pipeline.queues import WORKER_QUEUES
-from event_pipeline.worker import worker_loop
-from event_pipeline.reducer import reducer_loop
-from event_pipeline.ingest.server import app as fastapi_app
+import time
+import threading
 import uvicorn
 
-def start_workers():
-    reducer_inputs = []
-    workers = []
+from event_pipeline.config import (
+    N_WORKERS,
+    QUEUE_MAX_SIZE,
+    QUEUE_STRATEGY,
+    WINDOW_SECONDS,
+    METRICS_LOG_INTERVAL,
+)
+from event_pipeline.ingest import Ingestor
+from event_pipeline.queue import BoundedQueue
+from event_pipeline.worker_pool import WorkerPool
+from event_pipeline.metrics import Metrics
 
-    for i, q in enumerate(WORKER_QUEUES):
-        out_q = Queue()
-        reducer_inputs.append(out_q)
+import event_pipeline.api as api
 
-        p = Process(
-            target=worker_loop,
-            args=(q, out_q, i),
-        )
-        p.start()
-        workers.append(p)
 
-    reducer = Process(
-        target=reducer_loop,
-        args=(reducer_inputs,),
+def main():
+    metrics = Metrics()
+    ingestor = Ingestor(metrics)
+
+    def make_queue():
+        return BoundedQueue(QUEUE_MAX_SIZE, QUEUE_STRATEGY)
+
+    pool = WorkerPool(
+        N_WORKERS,
+        make_queue,
+        WINDOW_SECONDS,
     )
-    reducer.start()
-    return workers
+    pool.start()
+
+    # Inject dependency cho FastAPI
+    api.ingestor = ingestor
+    api.worker_queues = pool.queues
+    api.metrics = metrics
+
+    print("🚀 Pipeline started")
+
+    # Run FastAPI trong thread riêng
+    threading.Thread(
+        target=lambda: uvicorn.run(
+            api.app,
+            host="0.0.0.0",
+            port=8000,
+            log_level="info",
+        ),
+        daemon=True,
+    ).start()
+
+    # Metrics loop
+    while True:
+        metrics.maybe_log(METRICS_LOG_INTERVAL)
+        time.sleep(1)
+
 
 if __name__ == "__main__":
-    workers = start_workers()
-    print(f"{len(workers)} workers started.")
-
-    print("Starting API Server on http://0.0.0.0:8000")
-    try:
-        uvicorn.run(fastapi_app, host="0.0.0.0", port=8000)
-    except KeyboardInterrupt:
-        print("\n🛑 Stopping system...")
-    finally:
-        for q in WORKER_QUEUES:
-            q.put(None)
-
-        for p in workers:
-            p.join()
+    main()

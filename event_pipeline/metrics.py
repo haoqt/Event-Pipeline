@@ -1,12 +1,20 @@
-accepted = 0
-dropped = 0
+import time
+from collections import defaultdict
 
 
-def inc_accept():
-    global accepted
-    accepted += 1
+class Metrics:
+    def __init__(self):
+        self.counters = defaultdict(int)
+        self.last_log = time.time()
 
+    def inc(self, key: str, value: int = 1):
+        self.counters[key] += value
 
-def inc_drop():
-    global dropped
-    dropped += 1
+    def maybe_log(self, interval: int):
+        now = time.time()
+        if now - self.last_log >= interval:
+            print("📊 METRICS")
+            for k, v in self.counters.items():
+                print(f"  {k}: {v}")
+            print("-" * 30)
+            self.last_log = now

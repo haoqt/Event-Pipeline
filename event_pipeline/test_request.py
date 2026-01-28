@@ -1,18 +1,24 @@
 import asyncio
 import httpx
 import time
+import random
 
 # Cấu hình
-URL = "http://localhost:8000/ingest"
+URL = "http://localhost:8000/events"
 TOTAL_REQUESTS = 1_000_000
 CONCURRENCY = 200  # Số lượng request gửi đồng thời (điều chỉnh tùy sức mạnh CPU)
 BATCH_SIZE = 1000  # Cập nhật tiến độ sau mỗi 1000 requests
 
+SERVICE = ["auth", "login", "logout", "create"]
+HTTP_STATUS = [200, 200, 200, 500]
+
 
 async def send_request(client, semaphore):
     payload = {
+        "ts": 1710000000.12,
+        "service": SERVICE[random.randint(0, len(SERVICE) - 1)],
         "endpoint": "/events",
-        "status": 200,
+        "status": HTTP_STATUS[random.randint(0, len(HTTP_STATUS) - 1)],
         "latency_ms": 123
     }
 

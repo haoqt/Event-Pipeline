@@ -1,32 +1,26 @@
-from collections import deque
+import multiprocessing as mp
+from queue import Full, Empty
+
 
 class BoundedQueue:
-    def __init__(self, max_size: int):
-        self.max_size = max_size
-        self._queue = deque()
-        self.dropped = 0
+    def __init__(self, max_size: int, strategy: str = "drop"):
+        self._queue = mp.Queue(maxsize=max_size)
+        self.strategy = strategy
 
     def put(self, item) -> bool:
-        if len(self._queue) >= self.max_size:
-            self.dropped += 1
-            return False
-        self._queue.append(item)
-        return True
-
-    def is_full(self):
-        if len(self._queue) >= self.max_size:
+        if self.strategy == "block":
+            self._queue.put(item)
             return True
-        return False
 
-    def get(self):
-        if not self._queue:
-            return None
-        return self._queue.popleft()
+        # drop strategy
+        try:
+            self._queue.put(item, block=False)
+            return True
+        except Full:
+            return False
 
-    def size(self):
-        return len(self._queue)
+    def get(self, timeout=None):
+        return self._queue.get(timeout=timeout)
 
-    def queue_usage(self):
-        return len(self._queue) / self.max_size
-
-    
+    def size(self) -> int:
+        return self._queue.qsize()

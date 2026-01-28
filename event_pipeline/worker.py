@@ -1,25 +1,31 @@
 import time
-from event_pipeline.processing import process_event
-from event_pipeline.stats import WorkerStats
+from collections import defaultdict
 
-SNAPSHOT_INTERVAL = 1.0  # seconds
 
-def worker_loop(queue, out_queue, worker_id: int):
-    stats = WorkerStats()
-    last_snapshot = time.time()
+class Worker:
+    def __init__(self, worker_id: int, window_seconds: int):
+        self.worker_id = worker_id
+        self.window_seconds = window_seconds
+        self.state = defaultdict(int)
+        self.window_start = time.time()
+        self.processed = 0
 
-    while True:
-        event = queue.get()
-        if event is None:
-            break
+    def process(self, event):
+        self.processed += 1
+        self.state["count"] += 1
+        self.state[f"status_{event.status}"] += 1
+        self.state["latency_sum"] += event.latency_ms
 
-        process_event(event)
-        stats.update(event)
-
+    def maybe_flush(self):
         now = time.time()
-        if now - last_snapshot >= SNAPSHOT_INTERVAL:
-            out_queue.put(stats.snapshot_and_reset())
-            last_snapshot = now
+        if now - self.window_start >= self.window_seconds:
+            self.flush()
+            self.window_start = now
+            self.state.clear()
 
-    # final snapshot
-    out_queue.put(stats.snapshot_and_reset())
+    def flush(self):
+        print(
+            f"🧱 Worker {self.worker_id} | "
+            f"events={self.processed} | "
+            f"state={dict(self.state)}"
+        )
