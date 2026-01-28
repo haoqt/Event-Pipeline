@@ -1,16 +1,31 @@
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from event_pipeline.queues import WORKER_QUEUES
 from event_pipeline.worker import worker_loop
+from event_pipeline.reducer import reducer_loop
 from event_pipeline.ingest.server import app as fastapi_app
 import uvicorn
 
 def start_workers():
-    processes = []
+    reducer_inputs = []
+    workers = []
+
     for i, q in enumerate(WORKER_QUEUES):
-        p = Process(target=worker_loop, args=(q, i))
+        out_q = Queue()
+        reducer_inputs.append(out_q)
+
+        p = Process(
+            target=worker_loop,
+            args=(q, out_q, i),
+        )
         p.start()
-        processes.append(p)
-    return processes
+        workers.append(p)
+
+    reducer = Process(
+        target=reducer_loop,
+        args=(reducer_inputs,),
+    )
+    reducer.start()
+    return workers
 
 if __name__ == "__main__":
     workers = start_workers()

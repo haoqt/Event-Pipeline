@@ -1,15 +1,25 @@
+import time
 from event_pipeline.processing import process_event
+from event_pipeline.stats import WorkerStats
 
-def worker_loop(queue, worker_id: int):
-    processed = 0
+SNAPSHOT_INTERVAL = 1.0  # seconds
+
+def worker_loop(queue, out_queue, worker_id: int):
+    stats = WorkerStats()
+    last_snapshot = time.time()
 
     while True:
         event = queue.get()
         if event is None:
             break
 
-        # simulate CPU-bound work
         process_event(event)
-        processed += 1
+        stats.update(event)
 
-    print(f"[Worker {worker_id}] processed={processed}")
+        now = time.time()
+        if now - last_snapshot >= SNAPSHOT_INTERVAL:
+            out_queue.put(stats.snapshot_and_reset())
+            last_snapshot = now
+
+    # final snapshot
+    out_queue.put(stats.snapshot_and_reset())
