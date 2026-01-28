@@ -13,6 +13,11 @@ class BoundedQueue:
         self._queue.append(item)
         return True
 
+    def is_full(self):
+        if len(self._queue) >= self.max_size:
+            return True
+        return False
+
     def get(self):
         if not self._queue:
             return None
@@ -20,4 +25,8 @@ class BoundedQueue:
 
     def size(self):
         return len(self._queue)
+
+    def queue_usage(self):
+        return len(self._queue) / self.max_size
+
     
