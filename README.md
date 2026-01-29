@@ -13,6 +13,17 @@
 - At-least-once-ish
 - Kafka-ready design
 
+# Event Pipeline – Phase 3.5
+
+## Run locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m event_pipeline.main
+
+
 ## Next phases
 - Phase 3.5: batching & tuning
 - Phase 4: fault handling & snapshots

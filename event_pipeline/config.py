@@ -1,11 +1,11 @@
-N_WORKERS = 4
+from dataclasses import dataclass
 
-# Queue
-QUEUE_MAX_SIZE = 10_000
-QUEUE_STRATEGY = "drop"   # drop | block
 
-# Window
-WINDOW_SECONDS = 10
+@dataclass
+class Settings:
+    app_name: str = "Event Pipeline"
+    debug: bool = True
+    max_queue_size: int = 1000
 
-# Metrics
-METRICS_LOG_INTERVAL = 5
+
+settings = Settings()
